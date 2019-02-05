@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace SqDotNet
@@ -186,6 +187,7 @@ namespace SqDotNet
         #endregion
 
         #region Operators
+        /*
         static public implicit operator Squirrel(IntPtr ptr)
         {
             return new Squirrel(ptr);
@@ -195,6 +197,7 @@ namespace SqDotNet
         {
             return vm.Pointer;
         }
+        */
         #endregion
 
         #region Virtual Machine
@@ -203,11 +206,6 @@ namespace SqDotNet
         public Squirrel(int stackSize = 1024)
         {
             Pointer = Unmanaged.Open(stackSize);
-        }
-
-        private Squirrel(IntPtr vm)
-        {
-            Pointer = vm;
         }
 
         /// <summary></summary>
@@ -278,12 +276,15 @@ namespace SqDotNet
             Unmanaged.SetErrorHandler(Pointer);
         }
 
+        Unmanaged.SqPrintFunction _printHook;
+        Unmanaged.SqPrintFunction _errorHook;
+
         /// <summary>Sets the print function of the virtual machine. This function is used by the built-in function '::print()' to output text.</summary>
         public void SetPrintFunc(PrintFunction print, PrintFunction error)
         {
-            Unmanaged.SetPrintFunc(Pointer,
-                (IntPtr v, string message) => print(new Squirrel(v), message),
-                (IntPtr v, string message) => error(new Squirrel(v), message));
+            _printHook = (IntPtr v, string message) => print(this, message);
+            _errorHook = (IntPtr v, string message) => error(this, message);
+            Unmanaged.SetPrintFunc(Pointer, _printHook, _errorHook);
         }
 
         /// <summary>Pops a table from the stack and sets it as the root table.</summary>
@@ -344,11 +345,13 @@ namespace SqDotNet
             Unmanaged.NotifyAllExceptions(Pointer, enable);
         }
 
+        Unmanaged.SqCompilerError _errorfunc;
         /// <summary></summary>
         /// <param name="errorfunc"></param>
         public void SetCompilerErrorHandler(Unmanaged.SqCompilerError errorfunc)
         {
-            Unmanaged.SetCompilerErrorHandler(Pointer, errorfunc);
+            _errorfunc = errorfunc;
+            Unmanaged.SetCompilerErrorHandler(Pointer, _errorfunc);
         }
         #endregion
 
@@ -500,10 +503,13 @@ namespace SqDotNet
         {
             return Unmanaged.NewClass(Pointer, hasBase);
         }
+        List<Unmanaged.SqFunction> _closures = new List<Unmanaged.SqFunction>();
 
         public void NewClosure(Function func, int nFreeVars)
         {
-            Unmanaged.NewClosure(Pointer, (v) => func(new Squirrel(v)), nFreeVars);
+            Unmanaged.SqFunction closure = (v) => func(this);
+            Unmanaged.NewClosure(Pointer, closure, nFreeVars);
+            _closures.Add(closure);
         }
 
         public void NewTable()
@@ -576,9 +582,12 @@ namespace SqDotNet
             return Unmanaged.SetParamsCheck(Pointer, nParamsCheck, typeMask);
         }
 
+        Unmanaged.SqReleaseHook _releaseHook;
+
         public void SetReleaseHook(int idx, Unmanaged.SqReleaseHook hook)
         {
-            Unmanaged.SetReleaseHook(Pointer, idx, hook);
+            _releaseHook = hook;
+            Unmanaged.SetReleaseHook(Pointer, idx, _releaseHook);
         }
 
         public int SetTypeTag(int idx, IntPtr typeTag)
@@ -792,6 +801,7 @@ namespace SqDotNet
         #endregion
 
         #region Bytecode Serialization
+        /*
         public int ReadClosure(Unmanaged.SqReadFunc readf, IntPtr up)
         {
             return Unmanaged.ReadClosure(Pointer, readf, up);
@@ -801,6 +811,7 @@ namespace SqDotNet
         {
             return Unmanaged.WriteClosure(Pointer, writef, up);
         }
+        */
         #endregion
 
         #region Raw Object Handling

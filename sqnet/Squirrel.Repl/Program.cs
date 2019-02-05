@@ -123,7 +123,7 @@ internal class Program
                 {
                     case '\r': continue;
                     case '\n':
-                        if (buffer.Last() == '\\')
+                        if (buffer.Length > 0 && buffer.Last() == '\\')
                         {
                             buffer = buffer.Remove(buffer.Length - 1);
                             continue;
